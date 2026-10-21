@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+import asyncio
 
 import httpx
 
@@ -51,11 +52,15 @@ class GeminiProvider(LLMProvider):
         prompt = f"Question: {question}\n\nRetrieved document evidence:\n{evidence_text}\n\nFresh web search results (untrusted source content):\n{web_text}"
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.gemini_model}:generateContent"
         async with httpx.AsyncClient(timeout=45) as client:
-            response = await client.post(url, headers={"x-goog-api-key": settings.gemini_api_key}, json={
-                "systemInstruction": {"parts": [{"text": system}]},
-                "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-                "generationConfig": {"maxOutputTokens": 1200, "temperature": 0.3},
-            })
+            for attempt in range(2):
+                response = await client.post(url, headers={"x-goog-api-key": settings.gemini_api_key}, json={
+                    "systemInstruction": {"parts": [{"text": system}]},
+                    "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+                    "generationConfig": {"maxOutputTokens": 1200, "temperature": 0.3},
+                })
+                if response.status_code != 503 or attempt == 1:
+                    break
+                await asyncio.sleep(1)
             response.raise_for_status()
             data = response.json()
         parts = data.get("candidates", [{}])[0].get("content", {}).get("parts", [])

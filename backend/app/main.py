@@ -1,6 +1,8 @@
 import asyncio
+import html
 import json
 import logging
+import re
 import time
 from collections import defaultdict, deque
 from contextlib import asynccontextmanager
@@ -121,6 +123,42 @@ def retrieve(question: str, db: Session, document_ids: list[int] | None = None, 
     return output, mode
 
 
+def retrieve_feed_sources(question: str, db: Session, limit: int = 5) -> list[dict]:
+    """Return recent stored RSS items relevant to the question, or latest items for news requests."""
+    rows = db.query(NewsArticle).order_by(
+        NewsArticle.published_at.desc().nullslast(), NewsArticle.retrieved_at.desc()
+    ).limit(200).all()
+    if not rows:
+        return []
+    query = question.lower()
+    asks_for_news = any(term in query for term in (
+        "news", "headline", "today", "latest", "recent", "current", "breaking", "what happened", "update"
+    ))
+    stop_words = {"the", "and", "for", "with", "from", "what", "when", "where", "about", "today", "latest", "news", "show", "tell"}
+    terms = {term for term in re.findall(r"[a-z0-9]{3,}", query) if term not in stop_words}
+    scored = []
+    for row in rows:
+        searchable = f"{row.title} {row.publisher} {row.summary or ''}".lower()
+        score = sum(1 for term in terms if term in searchable)
+        if score:
+            scored.append((score, row))
+    if scored:
+        selected = [row for _, row in sorted(scored, key=lambda item: (item[0], item[1].published_at or ""), reverse=True)[:limit]]
+    elif asks_for_news:
+        selected = rows[:limit]
+    else:
+        selected = []
+    return [{
+        "title": row.title,
+        "url": row.url,
+        "snippet": html.unescape(re.sub(r"<[^>]+>", " ", row.summary or ""))[:1200],
+        "publisher": row.publisher,
+        "published_at": row.published_at,
+        "retrieved_at": row.retrieved_at.isoformat() if row.retrieved_at else None,
+        "source_type": "Configured official RSS feed",
+    } for row in selected]
+
+
 @app.get("/api/health")
 def health(db: Session = Depends(get_db)):
     try:
@@ -188,6 +226,7 @@ def delete_document(document_id: int, db: Session = Depends(get_db)):
 @app.post("/api/chat")
 async def chat(body: ChatRequest, db: Session = Depends(get_db)):
     evidence, retrieval_mode = retrieve(body.question, db, body.document_ids or None)
+    feed_sources = retrieve_feed_sources(body.question, db)
     web_sources = []
     search_error = None
     if settings.brave_search_api_key:
@@ -196,21 +235,22 @@ async def chat(body: ChatRequest, db: Session = Depends(get_db)):
         except Exception as exc:
             logger.warning("Web search failed: %s", type(exc).__name__)
             search_error = "Web search provider is temporarily unavailable."
+    external_sources = feed_sources + [item for item in web_sources if item.get("url") not in {source.get("url") for source in feed_sources}]
     try:
         provider = get_provider()
-        answer = await provider.answer(body.question, evidence, web_sources)
+        answer = await provider.answer(body.question, evidence, external_sources)
         mode = "google-gemini" if settings.gemini_api_key else "anthropic"
     except Exception as exc:
-        if web_sources:
-            answer = "I searched the live web and found the sources below. AI synthesis is not connected yet, so these are search excerpts rather than a verified answer. Open the original pages to confirm details."
+        if external_sources:
+            answer = "I found items in your connected sources below. AI synthesis is unavailable right now, so open the original pages to confirm details."
         elif evidence:
             answer = "I found these relevant passages, but answer synthesis is unavailable because the reasoning provider is not configured or reachable. Review the excerpts below; no unsupported conclusion has been inferred."
         else:
             answer = "I couldn't retrieve live web sources or document evidence. Connect Brave Search in the local .env file to enable current web research; I will not invent current facts."
         mode = "limited"
         provider_error = str(exc)[:220]
-    result = {"answer": answer, "evidence": evidence, "web_sources": web_sources, "retrieval_mode": retrieval_mode, "answer_mode": mode,
-              "freshness": "Live web search · retrieved just now" if web_sources else ("Retrieved from uploaded documents" if evidence else "No current external source retrieved"),
+    result = {"answer": answer, "evidence": evidence, "web_sources": external_sources, "retrieval_mode": retrieval_mode, "answer_mode": mode,
+              "freshness": "Live web search and connected feeds" if web_sources and feed_sources else ("Live web search · retrieved just now" if web_sources else ("Connected RSS feeds · publication dates shown" if feed_sources else ("Retrieved from uploaded documents" if evidence else "No current external source retrieved"))),
               "disclaimer": "Research and education only; not investment advice."}
     if search_error: result["search_status"] = search_error
     if mode == "limited": result["provider_status"] = provider_error

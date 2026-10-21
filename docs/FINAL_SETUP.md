@@ -49,6 +49,8 @@ The app is useful in limited mode without credentials. Configure these locally i
 
 - Feed URLs and access terms vary by publisher; do not configure paid/paywalled feeds without authorization.
 - Set `NEWS_RSS_URLS` to comma-separated permitted RSS feed URLs. The backend stores source URL, publisher, publication time and retrieval time where available.
+- The sample `.env.example` includes free official feeds for RBI press releases and notifications, Federal Reserve press releases, SEC press releases, and U.S. employment and CPI releases. These provide primary-source policy and macro updates, not broad coverage of every listed company or publisher.
+- The backend refreshes configured feeds every 15 minutes while running. Recent relevant items are included as assistant evidence for current-news questions, with links and publication dates.
 - Verify by opening the News screen and refreshing. Only configured feeds appear.
 
 ## Other provider keys
