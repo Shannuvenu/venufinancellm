@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import calendar
 from urllib.parse import quote
 
 import feedparser
@@ -83,7 +84,7 @@ async def sec_submissions(cik: str) -> dict:
 
 async def news_items() -> list[dict]:
     collected = []
-    for url in settings.rss_urls[:8]:
+    for url in settings.rss_urls[:20]:
         try:
             async with httpx.AsyncClient(timeout=10, follow_redirects=True, headers={"User-Agent": "VenuFinAI/0.1 (configured RSS reader)"}) as client:
                 response = await client.get(url)
@@ -92,6 +93,9 @@ async def news_items() -> list[dict]:
             publisher = parsed.feed.get("title", url)
             for entry in parsed.entries[:50]:
                 published = entry.get("published") or entry.get("updated")
+                parsed_published = entry.get("published_parsed") or entry.get("updated_parsed")
+                if parsed_published:
+                    published = datetime.fromtimestamp(calendar.timegm(parsed_published), timezone.utc).isoformat()
                 title = entry.get("title", "Untitled")
                 category = categorize(title + " " + entry.get("summary", ""))
                 collected.append({"title": entry.get("title", "Untitled"), "url": entry.get("link", url),

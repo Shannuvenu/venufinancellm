@@ -1,0 +1,12 @@
+.env
+.git
+.venv
+venv
+__pycache__
+.pytest_cache
+*.db
+*.sqlite*
+storage
+frontend
+node_modules
+*.log

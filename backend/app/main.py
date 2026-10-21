@@ -1,5 +1,6 @@
 import asyncio
 import html
+import hmac
 import json
 import logging
 import re
@@ -66,8 +67,17 @@ async def lifespan(_app):
 
 
 app = FastAPI(title="VenuFin AI API", version="0.1.0", description="Source-aware personal financial research. Research only; no trading endpoint.", lifespan=lifespan)
-app.add_middleware(CORSMiddleware, allow_origins=["http://127.0.0.1:3000", "http://localhost:3000"], allow_methods=["GET", "POST", "DELETE"], allow_headers=["*"])
+app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origins, allow_methods=["GET", "POST", "DELETE"], allow_headers=["*"])
 _requests: dict[str, deque[float]] = defaultdict(deque)
+
+
+@app.get("/healthz")
+def deployment_healthz(db: Session = Depends(get_db)):
+    try:
+        db.execute(text("SELECT 1"))
+    except Exception:
+        raise HTTPException(503, "Database unavailable.")
+    return {"status": "ok"}
 
 
 @app.middleware("http")
@@ -79,6 +89,15 @@ async def local_rate_limit(request: Request, call_next):
         from fastapi.responses import JSONResponse
         return JSONResponse({"detail": "Local request limit reached; retry shortly."}, status_code=429)
     bucket.append(now)
+    if request.url.path.startswith("/api/") and settings.app_env == "production":
+        expected = settings.app_internal_token
+        supplied = request.headers.get("x-internal-api-key", "")
+        if not expected:
+            from fastapi.responses import JSONResponse
+            return JSONResponse({"detail": "Production API gateway token is not configured."}, status_code=503)
+        if not hmac.compare_digest(supplied, expected):
+            from fastapi.responses import JSONResponse
+            return JSONResponse({"detail": "Authentication required."}, status_code=401)
     return await call_next(request)
 
 
@@ -172,7 +191,7 @@ def health(db: Session = Depends(get_db)):
                     "model": settings.gemini_model if settings.gemini_api_key else settings.anthropic_model},
             "embeddings": model_status(), "news_feeds_configured": len(settings.rss_urls),
             "web_search": {"provider": "Brave Search", "configured": bool(settings.brave_search_api_key)},
-            "market_data": {"provider": "Alpha Vantage", "configured": bool(settings.alphavantage_api_key), "entitlement": settings.market_data_entitlement or "end-of-day"},
+            "market_data": {"provider": "Alpha Vantage", "configured": bool(settings.alphavantage_api_key), "entitlement": settings.market_data_entitlement or "end-of-day", "india_coverage": "not guaranteed; use an authorized NSE/BSE data provider for complete exchange coverage"},
             "sec_edgar": "available-on-request", "trading": "not-supported"}
 
 
@@ -326,9 +345,11 @@ async def company_filings(cik: str):
 
 @app.get("/api/sources")
 def sources():
+    india_feeds = any(any(domain in url.lower() for domain in ("rbi.org.in", "sebi.gov.in", "nseindia.com", "nsearchives.nseindia.com", "bseindia.com")) for url in settings.rss_urls)
     return {"items": [
         {"name": "SEC EDGAR", "status": "on request", "type": "official filing data", "coverage": "US filings; not price quotes"},
         {"name": "Configured RSS", "status": "connected" if settings.rss_urls else "not configured", "type": "news", "coverage": "user-configured feeds only"},
+        {"name": "Indian official sources", "status": "connected" if india_feeds else "not configured", "type": "RBI, SEBI and NSE public feeds", "coverage": "configured public announcements and releases; not every financial publisher or filing"},
         {"name": "Brave Search", "status": "connected" if settings.brave_search_api_key else "not configured", "type": "live web search", "coverage": "web search results; provider limits apply"},
         {"name": "Alpha Vantage", "status": "connected" if settings.alphavantage_api_key else "not configured", "type": "market quotes", "coverage": "global quote; end-of-day by default"},
         {"name": "Anthropic", "status": "connected" if settings.anthropic_api_key else "not configured", "type": "reasoning", "coverage": "optional synthesis"},

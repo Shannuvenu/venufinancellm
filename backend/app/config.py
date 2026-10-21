@@ -8,6 +8,8 @@ load_dotenv(ROOT / ".env")
 
 
 class Settings:
+    app_env = os.getenv("APP_ENV", "development").lower()
+    app_internal_token = os.getenv("APP_INTERNAL_TOKEN", "")
     database_url = os.getenv("DATABASE_URL", f"sqlite:///{(ROOT / 'venufin.db').as_posix()}")
     anthropic_api_key = os.getenv("ANTHROPIC_API_KEY", "")
     anthropic_model = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-5")
@@ -20,10 +22,11 @@ class Settings:
     embeddings_enabled = os.getenv("EMBEDDINGS_ENABLED", "true").lower() == "true"
     sec_user_agent = os.getenv("SEC_USER_AGENT", "VenuFinAI contact@example.com")
     rss_urls = [u.strip() for u in os.getenv("NEWS_RSS_URLS", "").split(",") if u.strip()]
+    cors_origins = [u.strip().rstrip("/") for u in os.getenv("CORS_ORIGINS", "http://127.0.0.1:3000,http://localhost:3000").split(",") if u.strip()]
     max_upload_mb = int(os.getenv("MAX_UPLOAD_MB", "25"))
     rate_limit_per_minute = int(os.getenv("RATE_LIMIT_PER_MINUTE", "60"))
 
 
 settings = Settings()
-STORAGE = ROOT / "storage" / "uploads"
+STORAGE = Path(os.getenv("UPLOADS_DIR") or str(ROOT / "storage" / "uploads")).expanduser()
 STORAGE.mkdir(parents=True, exist_ok=True)

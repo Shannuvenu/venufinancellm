@@ -17,15 +17,19 @@ The app runs in limited mode without API credentials. No sample market prices or
 - Google Gemini and Anthropic provider adapters for answer generation; without a key, source results are still shown without synthesis.
 - Deterministic calculator endpoints and a browser calculator for CAGR/returns, loans/SIP, valuations, cash flows, FX conversions, options/futures payoffs, and portfolio risk metrics.
 - Source-aware SEC submissions/company facts connectors, configured public RSS ingestion, and clear provider health states.
+- India-oriented RBI, SEBI, and NSE public RSS feeds for policy updates, notices, announcements, and corporate actions. These do not replace a licensed all-stock quote or complete filing feed.
 - Optional live Brave web search with linked sources and Alpha Vantage ticker quotes that label the actual data entitlement and trading date.
 - Local portfolio analysis from user-entered data; nothing is sent to a provider.
+- Batch document uploads for PDFs, text files, and tables; select many files at once and review indexed, duplicate, and failed counts.
 - Windows setup and start scripts, provider/source inventory, security notes, API docs, and tests.
 
 See [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md), [docs/DATA_SOURCES.md](docs/DATA_SOURCES.md), and [docs/FINAL_SETUP.md](docs/FINAL_SETUP.md).
 
+For the India 100-report starter set and private hosting steps, see [docs/INDIA_100_DOCUMENT_STARTER_PACK.md](docs/INDIA_100_DOCUMENT_STARTER_PACK.md) and [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
 ## API
 
-FastAPI is served at http://127.0.0.1:8000. Interactive endpoint documentation is at `/docs`; `/api/health` reports connected capabilities. The backend binds to loopback by default.
+FastAPI is served at http://127.0.0.1:8000. Interactive endpoint documentation is at `/docs`; `/api/health` reports connected capabilities. Local development binds to loopback. Hosted setups proxy API calls through Next.js and require a password and server-to-server token.
 
 ## Safety
 

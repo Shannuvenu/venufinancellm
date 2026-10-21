@@ -9,7 +9,8 @@
 | Google Gemini API | Optional answer synthesis | Implemented optional provider | Requires API key; model availability and free quotas depend on Google AI Studio account |
 | Brave Search API | Fresh web search for assistant questions | Implemented optional connector | Requires API key; plan, usage, and data-use terms apply; snippets link to original pages |
 | Alpha Vantage Global Quote | Market quotes by ticker | Implemented optional connector | Requires API key; default is end-of-day; realtime/delayed US data requires premium entitlement; NSE/BSE coverage is not promised |
-| RBI, NSE, BSE, SEBI, MOSPI, official US/global macro sources | Official India and global datasets | Not connected in this release | Connector review and access/format checks remain |
+| RBI, SEBI, NSE RSS | Indian policy releases, regulator notices, listed-company announcements and corporate actions | Implemented through configured official RSS feeds | Public headline/feed coverage only; updates may be delayed; not a complete filing or news archive |
+| NSE/BSE market data | Indian equity prices and market information | Not connected as a full exchange quote provider | Complete/redistributed live coverage requires an authorized exchange/vendor agreement. Alpha Vantage may not cover Indian symbols |
 | Licensed quotes and premium financial news | Prices and paid media | Not connected | Select provider and obtain appropriate subscription/permissions |
 
 Every displayed external item should expose its source and timestamps. Unsupported feeds are empty, not filled with mock content.

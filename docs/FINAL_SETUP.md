@@ -38,6 +38,8 @@ The app is useful in limited mode without credentials. Configure these locally i
 - Create a database and set `DATABASE_URL=postgresql+psycopg://USER:PASSWORD@HOST:5432/DATABASE` in `.env`. URL-escape special characters in the password.
 - Restart and verify `/api/health` reports the database available.
 
+For the private hosted setup, configure `APP_ENV=production`, `APP_INTERNAL_TOKEN`, `APP_USERNAME`, and `APP_PASSWORD` as described in [DEPLOYMENT.md](DEPLOYMENT.md). Keep the token and password in the hosting providers' secret settings only.
+
 ## SEC EDGAR (public filings)
 
 - Official information: [SEC EDGAR APIs](https://www.sec.gov/edgar/sec-api-documentation).
@@ -49,7 +51,7 @@ The app is useful in limited mode without credentials. Configure these locally i
 
 - Feed URLs and access terms vary by publisher; do not configure paid/paywalled feeds without authorization.
 - Set `NEWS_RSS_URLS` to comma-separated permitted RSS feed URLs. The backend stores source URL, publisher, publication time and retrieval time where available.
-- The sample `.env.example` includes free official feeds for RBI press releases and notifications, Federal Reserve press releases, SEC press releases, and U.S. employment and CPI releases. These provide primary-source policy and macro updates, not broad coverage of every listed company or publisher.
+- The sample `.env.example` includes free official feeds for RBI press releases and notifications, SEBI releases/circulars/orders, and NSE announcements and corporate actions, plus selected global macro feeds. These provide primary-source updates, not broad coverage of every listed company or publisher.
 - The backend refreshes configured feeds every 15 minutes while running. Recent relevant items are included as assistant evidence for current-news questions, with links and publication dates.
 - Verify by opening the News screen and refreshing. Only configured feeds appear.
 
